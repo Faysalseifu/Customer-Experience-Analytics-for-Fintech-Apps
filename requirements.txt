@@ -1,0 +1,11 @@
+requests
+pandas
+numpy
+beautifulsoup4
+lxml
+nltk
+spacy
+transformers
+torch
+psycopg2-binary
+pytest
