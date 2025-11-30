@@ -1,0 +1,14 @@
+requests
+pandas
+numpy
+beautifulsoup4
+lxml
+nltk
+spacy
+transformers
+torch
+psycopg2-binary
+pytest
+google_play_scraper
+python-dotenv
+tqdm
