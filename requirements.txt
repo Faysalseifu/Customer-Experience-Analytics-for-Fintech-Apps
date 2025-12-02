@@ -12,3 +12,7 @@ pytest
 google_play_scraper
 python-dotenv
 tqdm
+matplotlib
+seaborn
+wordcloud
+scikit-learn
