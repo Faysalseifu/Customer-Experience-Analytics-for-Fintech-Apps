@@ -1,13 +1,18 @@
+"""Scripts.analysis
 
-"""analysis.py
+Lightweight thematic analysis pipeline used after preprocessing.
 
-Lightweight thematic analysis pipeline.
+This module loads the processed reviews CSV, performs lightweight
+text cleaning, optional lemmatization (spaCy preferred, NLTK fallback),
+sentiment scoring using NLTK's VADER, TF-IDF keyword extraction per bank,
+simple rule-based theme assignment, and writes out a final CSV and
+example reviews grouped by theme.
 
-Usage: python Scripts/analysis.py
+Usage: `python Scripts/analysis.py`
 
-Produces:
-- Data/processed/reviews_final.csv
-- Data/processed/theme_examples.json
+Outputs:
+ - `Data/processed/reviews_final.csv`
+ - `Data/processed/theme_examples.json`
 """
 from pathlib import Path
 import re
@@ -27,6 +32,12 @@ warnings.filterwarnings('ignore')
 
 
 def find_processed_csv():
+	"""Locate the processed reviews CSV on disk.
+
+	Looks in the project `Scripts.config.DATA_PATHS` first, then a couple
+	of common relative paths. Returns a resolved `Path` if found,
+	otherwise raises `FileNotFoundError` with the locations searched.
+	"""
 	try:
 		from Scripts.config import DATA_PATHS
 		candidate = DATA_PATHS.get('processed_reviews')
@@ -37,6 +48,7 @@ def find_processed_csv():
 		if not c:
 			continue
 		p = Path(c)
+		# Make relative paths absolute against CWD for robust discovery
 		if not p.is_absolute():
 			p = Path.cwd() / p
 		if p.exists():
@@ -45,16 +57,29 @@ def find_processed_csv():
 
 
 def clean_text(t):
+	"""Basic text cleaning used before vectorization/lemmatization.
+
+	Removes URLs, non-ASCII characters, collapses whitespace and lowercases.
+	Returns an empty string for null inputs.
+	"""
 	if pd.isna(t):
 		return ''
 	s = str(t)
+	# Remove URLs which don't help with semantic analysis
 	s = re.sub(r'http\S+|www\.\S+', ' ', s)
+	# Remove non-ASCII characters to avoid encoding issues
 	s = re.sub(r'[^\x00-\x7F]+', ' ', s)
+	# Collapse multiple spaces/newlines and lowercase
 	s = re.sub(r'\s+', ' ', s).strip().lower()
 	return s
 
 
 def ensure_nltk():
+	"""Ensure required NLTK datasets are present, download if missing.
+
+	VADER is used for sentiment scoring and stopwords are used in the
+	NLTK fallback lemmatizer/token filter.
+	"""
 	try:
 		nltk.data.find('sentiment/vader_lexicon')
 	except Exception:
@@ -66,6 +91,12 @@ def ensure_nltk():
 
 
 def lemmatize_texts(texts):
+	"""Lemmatize a list of texts.
+
+	Prefers spaCy (higher quality) when available; otherwise falls back
+	to a simple NLTK-based token filter that removes stopwords and keeps
+	alpha tokens of length >= 2.
+	"""
 	# Try spaCy if available for higher quality lemmatization
 	try:
 		import spacy
@@ -73,10 +104,12 @@ def lemmatize_texts(texts):
 		docs = list(nlp.pipe(texts, batch_size=64))
 		out = []
 		for doc in docs:
+			# Keep only alphabetic tokens, exclude stopwords, use lemma form
 			tokens = [token.lemma_.lower() for token in doc if token.is_alpha and not token.is_stop]
 			out.append(' '.join(tokens))
 		return out
 	except Exception:
+		# NLTK fallback: simple regex tokenization + stopword removal
 		from nltk.corpus import stopwords
 		sw = set(stopwords.words('english'))
 		out = []
@@ -88,20 +121,33 @@ def lemmatize_texts(texts):
 
 
 def compute_sentiment(df):
+	"""Compute VADER sentiment scores and labels for `clean_text`.
+
+	Adds two columns to the DataFrame:
+	 - `sentiment_score` (float compound score)
+	 - `sentiment_label` (one of 'positive', 'neutral', 'negative')
+	"""
 	ensure_nltk()
 	sia = SentimentIntensityAnalyzer()
+	# Use compound score thresholding per VADER recommendations
 	df['sentiment_score'] = df['clean_text'].apply(lambda t: sia.polarity_scores(str(t))['compound'])
 	df['sentiment_label'] = df['sentiment_score'].apply(lambda s: 'positive' if s >= 0.05 else ('negative' if s <= -0.05 else 'neutral'))
 	return df
 
 
 def extract_tfidf_keywords(df, bank_col='bank_name', text_col='lemmatized', top_n=25):
+	"""Extract top TF-IDF keywords per bank.
+
+	Returns a dict mapping bank name -> list of top_n keyword tokens/phrases.
+	Uses unigrams and bigrams and limits features for performance.
+	"""
 	result = {}
 	for bank, sub in df.groupby(bank_col):
 		texts = sub[text_col].fillna('').tolist()
 		if len(texts) == 0:
 			result[bank] = []
 			continue
+		# Restrict features to keep memory usage reasonable on larger sets
 		vec = TfidfVectorizer(max_features=500, ngram_range=(1,2), token_pattern=r"\b[a-z]{2,}\b")
 		X = vec.fit_transform(texts)
 		sums = np.asarray(X.sum(axis=0)).ravel()
@@ -121,6 +167,12 @@ THEME_KEYWORDS = {
 
 
 def assign_theme(text):
+	"""Assign one or more themes to a text using simple keyword matching.
+
+	This is intentionally light-weight and rule-based — useful for quick
+	exploration but not a substitute for a trained classifier.
+	Returns a list (could be multiple theme hits).
+	"""
 	t = str(text).lower()
 	hits = []
 	for theme, kws in THEME_KEYWORDS.items():
@@ -130,6 +182,7 @@ def assign_theme(text):
 				break
 	if not hits:
 		return ['Other']
+	# deduplicate while preserving order
 	return list(dict.fromkeys(hits))
 
 
