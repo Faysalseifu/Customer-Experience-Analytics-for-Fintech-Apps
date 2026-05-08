@@ -1,25 +1,24 @@
+# src/utils.py
 from typing import List, Dict, Any
-from langchain.schema import Document
+import re
+from datetime import datetime
 
-def format_sources(docs: List[Document]) -> str:
-    """Format retrieved documents into readable markdown."""
-    if not docs:
-        return "**No relevant sources found.**"
-    
-    md = "**Retrieved Sources:**\n\n"
-    for i, doc in enumerate(docs, 1):
-        md += f"**Source {i}** — "
-        md += f"**Product:** {doc.metadata.get('product_category', 'N/A')}, "
-        md += f"**Issue:** {doc.metadata.get('issue', 'N/A')}\n"
-        md += f"**Complaint ID:** {doc.metadata.get('complaint_id', 'N/A')}\n"
-        excerpt = doc.page_content[:280].replace('\n', ' ')
-        md += f"**Excerpt:** {excerpt}...\n\n"
-    return md
+def clean_text(text: str) -> str:
+    """Clean and normalize text."""
+    if not text:
+        return ""
+    text = re.sub(r'[^a-zA-Z\s]', '', text.lower())
+    return text.strip()
 
 
-def validate_config(config: "AppConfig") -> None:
-    """Validate critical configuration."""
-    if not config.hf_token:
-        raise ValueError("HUGGINGFACEHUB_API_TOKEN is required. Set it in .env or environment.")
-    if not config.parquet_path.exists():
-        raise FileNotFoundError(f"Parquet file not found: {config.parquet_path}")
+def validate_review(text: str, min_length: int = 15) -> bool:
+    """Validate if review is meaningful."""
+    return isinstance(text, str) and len(text.strip()) >= min_length
+
+
+def format_date(date_obj) -> str:
+    """Safely format date to YYYY-MM-DD."""
+    if hasattr(date_obj, 'strftime'):
+        return date_obj.strftime("%Y-%m-%d")
+    return str(date_obj).split()[0]
+
