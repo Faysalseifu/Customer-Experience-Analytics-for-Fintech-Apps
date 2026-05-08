@@ -1,5 +1,20 @@
-# Customer-Experience-Analytics-for-Fintech-Apps
-A Real-World Data Engineering Challenge: Scraping, Analyzing, and Visualizing Google Play Store Reviews
+# Customer Experience Analytics for Fintech Apps
+
+![CI Status](https://github.com/yourusername/your-repo/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Pytest](https://img.shields.io/badge/Testing-pytest-green)
+
+---
+
+**10 Academy Week 2 Challenge** – End-to-End Data Pipeline with Sentiment Analysis, Thematic Clustering, PostgreSQL, and CI/CD.
+
+## Features
+- Robust Google Play Store scraper
+- DistilBERT Sentiment Analysis
+- Rule-based Thematic Analysis
+- PostgreSQL Data Storage
+- Unit Tests + GitHub Actions CI/CD
+- Professional Visualizations & Report
 
 ## Setup
 Install project dependencies into your Python environment (recommended to use a virtualenv):

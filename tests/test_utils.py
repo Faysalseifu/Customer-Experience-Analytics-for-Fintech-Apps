@@ -1,46 +1,25 @@
+# tests/test_utils.py
 import pytest
-from unittest.mock import patch
-from src.utils import format_sources, validate_config
-from langchain.schema import Document
-from src.config import AppConfig
+from src.utils import clean_text, validate_review, format_date
+from datetime import datetime
 
-def test_format_sources():
-    """Test the format_sources utility function."""
-    docs = [
-        Document(page_content="This is the first document.", metadata={"product_category": "Card", "issue": "Fraud", "complaint_id": "123"}),
-        Document(page_content="This is the second document.", metadata={"product_category": "Loan", "issue": "Billing", "complaint_id": "456"})
-    ]
-    
-    formatted_string = format_sources(docs)
-    
-    assert "**Retrieved Sources:**" in formatted_string
-    assert "**Source 1**" in formatted_string
-    assert "**Source 2**" in formatted_string
-    assert "Product:** Card" in formatted_string
-    assert "Issue:** Fraud" in formatted_string
-    assert "Complaint ID:** 123" in formatted_string
-    assert "Excerpt:** This is the first document." in formatted_string
 
-def test_validate_config_success():
-    """Test validate_config with a valid configuration."""
-    with patch('pathlib.Path.exists') as mock_exists:
-        mock_exists.return_value = True
-        config = AppConfig(hf_token="test_token", parquet_path="dummy.parquet")
-        try:
-            validate_config(config)
-        except (ValueError, FileNotFoundError):
-            pytest.fail("validate_config raised an exception unexpectedly.")
+def test_clean_text():
+    assert clean_text("Hello!!! World?") == "hello world"
+    assert clean_text("   Leading   and   trailing   ") == "leading and trailing"
+    assert clean_text("") == ""
+    assert clean_text(None) == ""
 
-def test_validate_config_no_token():
-    """Test validate_config with a missing Hugging Face token."""
-    with pytest.raises(ValueError, match="HUGGINGFACEHUB_API_TOKEN is required"):
-        config = AppConfig(parquet_path="dummy.parquet")
-        validate_config(config)
 
-def test_validate_config_file_not_found():
-    """Test validate_config with a non-existent parquet file."""
-    with patch('pathlib.Path.exists') as mock_exists:
-        mock_exists.return_value = False
-        with pytest.raises(FileNotFoundError, match="Parquet file not found"):
-            config = AppConfig(hf_token="test_token", parquet_path="non_existent.parquet")
-            validate_config(config)
+def test_validate_review():
+    assert validate_review("This is a valid review text", 15) is True
+    assert validate_review("Too short", 15) is False
+    assert validate_review("", 15) is False
+    assert validate_review(None, 15) is False
+
+
+def test_format_date():
+    dt = datetime(2025, 12, 2, 14, 30)
+    assert format_date(dt) == "2025-12-02"
+    assert format_date("2025-12-02 10:00:00") == "2025-12-02"
+
