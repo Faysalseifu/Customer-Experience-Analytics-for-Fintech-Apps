@@ -1,4 +1,7 @@
 # tests/test_utils.py
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 from src.utils import clean_text, validate_review, format_date
 from datetime import datetime
